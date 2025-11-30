@@ -22,7 +22,7 @@ const geistMono = localFont({
 
 // 🔗 Ayarlar
 const appUrl = "https://voltpacks.xyz";
-const shareImage = "https://i.imgur.com/hTYcwAu.png"; // Senin yeni görselin
+const shareImage = "https://i.imgur.com/hTYcwAu.png"; // ✅ İSTEDİĞİN GÖRSEL
 
 export default async function RootLayout({
   children,
@@ -85,7 +85,7 @@ export const metadata: Metadata = {
           type: "launch_frame",
           name: "Stranger Packs",
           url: appUrl,
-          splashImageUrl: shareImage, // ✅ Splash (Açılış) Görseli
+          splashImageUrl: shareImage, // ✅ Splash (Açılış) Görseli de aynı yapıldı
           splashBackgroundColor: "#000000", // Siyah Arka Plan
         },
       },
