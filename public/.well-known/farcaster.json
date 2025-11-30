@@ -2,11 +2,11 @@
   "miniapp": {
     "version": "1",
     "name": "Stranger Packs",
-    "iconUrl": "https://usdozf7pplhxfvrl.public.blob.vercel-storage.com/e339328c-c8e8-49e6-bf1f-364dee4f7932-5LYqqyPS6m96aHK9TdbdVmrImkmhr3",
+    "iconUrl": "https://i.imgur.com/hTYcwAu.png",
     "homeUrl": "https://voltpacks.xyz/",
-    "imageUrl": "https://usdozf7pplhxfvrl.public.blob.vercel-storage.com/e339328c-c8e8-49e6-bf1f-364dee4f7932-5LYqqyPS6m96aHK9TdbdVmrImkmhr3",
+    "imageUrl": "https://i.imgur.com/hTYcwAu.png",
     "buttonTitle": "Mint Stranger Cards",
-    "splashImageUrl": "https://i.imgur.com/asA3dG6.png",
+    "splashImageUrl": "https://i.imgur.com/WBkVv7f.png",
     "splashBackgroundColor": "#000000",
     "tags": [
       "mini-app",
@@ -15,7 +15,7 @@
     ],
     "primaryCategory": "entertainment",
     "ogTitle": "Stranger Packs",
-    "ogImageUrl": "https://usdozf7pplhxfvrl.public.blob.vercel-storage.com/e339328c-c8e8-49e6-bf1f-364dee4f7932-5LYqqyPS6m96aHK9TdbdVmrImkmhr3"
+    "ogImageUrl": "https://i.imgur.com/hTYcwAu.png"
   },
   "baseBuilder": {
     "allowedAddresses": [
