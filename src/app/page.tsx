@@ -263,10 +263,20 @@ export default function Home() {
   const hasEnoughBalance = useMemo(() => usdcBalance ? (usdcBalance as bigint) >= totalCost : false, [usdcBalance, totalCost]);
   const needsApproval = useMemo(() => allowance ? (allowance as bigint) < totalCost : true, [allowance, totalCost]);
 
-  // 🔥 Unique Collection Count
+  // 🔥 Unique Collection Count - FIXED: Extracts ID from URL if artId is missing
   const uniqueCollectedCount = useMemo(() => {
-    const uniqueIds = new Set(userMintedNFTs.map(nft => nft.artId));
-    uniqueIds.delete(undefined);
+    const uniqueIds = new Set();
+    userMintedNFTs.forEach(nft => {
+        if (nft.artId) {
+            uniqueIds.add(nft.artId);
+        } else if (nft.image) {
+            // Try to extract from image URL if artId is missing (e.g. ipfs://.../5.png)
+            const match = nft.image.match(/\/(\d+)\.png$/);
+            if (match) {
+                uniqueIds.add(Number(match[1]));
+            }
+        }
+    });
     return uniqueIds.size;
   }, [userMintedNFTs]);
 
@@ -429,7 +439,10 @@ export default function Home() {
         let shareText = customText || `Just minted ${revealedCards.length} Stranger Things NFT${revealedCards.length > 1 ? 's' : ''} from the Upside Down! 🔴⚡\n\n${revealedCards.map(c => `📄 Artifact #${c.number}`).join('\n')}\n\nExperience: https://voltpacks.xyz\n\n#StrangerThings #NFT #Base`;
         
         // Varsayılan embed görsel (İlk kart veya placeholder)
+        // Eğer customImage yoksa ve revealedCards doluysa ilk kartı al, yoksa placeholder
         let rawImage = customImage || (revealedCards.length > 0 ? revealedCards[0].tokenURI : "https://i.imgur.com/hTYcwAu.png");
+        
+        // IPFS -> Cloudflare çevrimi (Farcaster önizlemesi için)
         let embedImage = ipfsToCloudflare(rawImage);
         
         const encodedText = encodeURIComponent(shareText);
@@ -454,6 +467,7 @@ export default function Home() {
   // ✅ GALERİ PAYLAŞIM FONKSİYONU
   const handleShareCollection = () => {
      const shareText = `I have collected ${uniqueCollectedCount} / ${TOTAL_ART_COUNT} unique artifacts from the Upside Down! 🔴⚡\n\nCan you beat my collection?\n\nMint yours at: https://voltpacks.xyz`;
+     // Koleksiyondaki ilk görseli al, yoksa placeholder
      const embedImage = userMintedNFTs.length > 0 ? userMintedNFTs[0].image : "https://i.imgur.com/hTYcwAu.png";
      handleShare(shareText, embedImage);
   };
@@ -853,7 +867,7 @@ export default function Home() {
                    )}
                  </>
                ) : needsApproval ? (
-                 'AUTHORIZE'
+                 'APPROVE'
                ) : (
                  'OPEN PACK'
                )}
