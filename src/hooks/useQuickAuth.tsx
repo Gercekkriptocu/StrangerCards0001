@@ -63,14 +63,7 @@ export function useQuickAuth(isInFarcaster: boolean): QuickAuthResult {
               try {
                 await reconnect()
                 console.log('✅ Wallet reconnected successfully')
-                
-                // Wait a bit to verify connection
-                await new Promise(resolve => setTimeout(resolve, 300))
-                
-                toast.success('🔗 Wallet Auto-Connected!', {
-                  description: 'Your Farcaster wallet is now connected',
-                  duration: 2000,
-                })
+                // SESSİZ MOD: Bildirim kaldırıldı
                 return
               } catch (err) {
                 console.log('⚠️ Reconnect failed, trying direct connect...')
@@ -95,11 +88,7 @@ export function useQuickAuth(isInFarcaster: boolean): QuickAuthResult {
                   await new Promise(resolve => setTimeout(resolve, 300))
                   
                   console.log(`✅ Connected via ${connector.name}!`)
-                  
-                  toast.success('🔗 Wallet Auto-Connected!', {
-                    description: `Connected via ${connector.name}`,
-                    duration: 2000,
-                  })
+                  // SESSİZ MOD: Bildirim kaldırıldı
                   break
                 } catch (err) {
                   console.log(`⚠️ ${connector.name} failed:`, err)
@@ -111,60 +100,20 @@ export function useQuickAuth(isInFarcaster: boolean): QuickAuthResult {
             }
           }
           
-          toast.success('🎯 Farcaster Identity Linked!', {
-            description: (
-              <div className="flex flex-col gap-2 mt-2 text-black">
-                <div className="flex items-center gap-3">
-                  {data.pfpUrl && (
-                    <img 
-                      src={data.pfpUrl} 
-                      alt="Profile" 
-                      className="w-12 h-12 rounded-full border-2 border-black"
-                    />
-                  )}
-                  <div>
-                    <div className="font-semibold text-black">{data.displayName}</div>
-                    <div className="text-sm text-black/70">@{data.username}</div>
-                  </div>
-                </div>
-                <div className="text-sm space-y-1 text-black">
-                  <div><span className="font-medium">FID:</span> {data.fid}</div>
-                  {data.primaryAddress && (
-                    <div>
-                      <span className="font-medium">Address:</span>{' '}
-                      {data.primaryAddress.slice(0, 6)}...{data.primaryAddress.slice(-4)}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ),
-            duration: 3000,
-            className: 'border-2 border-black',
-            style: {
-              borderColor: '#000000',
-              borderWidth: '2px',
-            },
-          })
+          // SESSİZ MOD: "Farcaster Identity Linked" bildirimi kaldırıldı.
+          
         } else {
           console.error('❌ Quick Auth failed:', response.status)
+          // Hata durumu kalsın mı? İstersen bunu da silebilirsin ama hata görmek iyidir.
           toast.error('Authentication failed', {
             description: 'Unable to verify your Farcaster identity',
-            className: 'border-2 border-black text-black',
-            style: {
-              borderColor: '#000000',
-              borderWidth: '2px',
-            },
           })
         }
       } catch (error) {
         console.error('❌ Quick Auth error:', error)
+        // Hata durumu
         toast.error('Authentication error', {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred',
-          className: 'border-2 border-black text-black',
-          style: {
-            borderColor: '#000000',
-            borderWidth: '2px',
-          },
+           description: 'Connection Error'
         })
       }
     }
