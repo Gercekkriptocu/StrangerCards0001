@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient, useConnect } from 'wagmi';
 import { parseUnits, type Address, type Log, decodeEventLog } from 'viem';
+import { toast } from 'sonner'; // Hata mesajları için
 import PackOpening from '@/components/PackOpening';
 import MusicPanel from '@/components/MusicPanel';
 import SoundCloudPlayer from '@/components/SoundCloudPlayer';
@@ -17,9 +18,6 @@ import { useIsInFarcaster } from "@/hooks/useIsInFarcaster";
 // Base Mainnet USDC Address
 const USDC_ADDRESS: Address = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 const NFT_CONTRACT_ADDRESS: Address = "0xFaCEEc3C8c67eC27c9F2afc8A4ca4a3E1e1263bC" as Address;
-// IMPORTANT: Replace this with your actual IPFS CID where your NFT images are stored
-// Example: If your images are at ipfs://QmXXX/1.png, ipfs://QmXXX/2.png, etc.
-// Then IPFS_CID should be "QmXXX"
 const IPFS_CID = "bafybeidot75pevwwcdcehtfzfwxxkwcabgyphrc6m44x2ufdestdqr5wbq"; // ✅ Real IPFS CID
 const PACK_PRICE = "0.3"; 
 const TOTAL_ART_COUNT = 117;
@@ -28,8 +26,8 @@ const TOTAL_ART_COUNT = 117;
 // HELPER FUNCTIONS
 // ========================
 // Convert IPFS URI to HTTP gateway URL
-// Using ipfs.io gateway for display
 const ipfsToHttp = (uri: string): string => {
+  if (!uri) return "https://i.imgur.com/hTYcwAu.png";
   if (uri.startsWith('ipfs://')) {
     return uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
   }
@@ -38,6 +36,7 @@ const ipfsToHttp = (uri: string): string => {
 
 // Convert IPFS URI to Cloudflare gateway for better Farcaster/social media compatibility
 const ipfsToCloudflare = (uri: string): string => {
+  if (!uri) return "https://i.imgur.com/hTYcwAu.png";
   if (uri.startsWith('ipfs://')) {
     return uri.replace('ipfs://', 'https://cloudflare-ipfs.com/ipfs/');
   }
@@ -94,7 +93,8 @@ const NFT_ABI = [
 // ========================
 // TYPES
 // ========================
-type MintStage = 'idle' | 'approving' | 'approved' | 'minting' | 'animating' | 'revealed';
+// 'gallery' eklendi
+type MintStage = 'idle' | 'approving' | 'approved' | 'minting' | 'animating' | 'revealed' | 'gallery';
 
 interface RevealedCard { tokenURI: string; number: number; tokenId: number; }
 interface MintedNFT { id: string; image: string; tokenId?: string; artId?: number; }
@@ -110,27 +110,20 @@ const ChristmasLights = () => {
   // Tüm alfabeyi rastgele dağıt (26 harf) - R, U, N için
   const shuffledLetters = useMemo(() => {
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-    // Fisher-Yates shuffle
     const shuffled = [...alphabet];
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-    
-    // Swap R ↔ U
     const rIndex = shuffled.indexOf('R');
     const uIndex = shuffled.indexOf('U');
     [shuffled[rIndex], shuffled[uIndex]] = [shuffled[uIndex], shuffled[rIndex]];
-    
-    // Swap N ↔ C
     const nIndex = shuffled.indexOf('N');
     const cIndex = shuffled.indexOf('C');
     [shuffled[nIndex], shuffled[cIndex]] = [shuffled[cIndex], shuffled[nIndex]];
-    
     return shuffled;
   }, []);
   
-  // R, U, N harflerinin indekslerini bul
   const runIndices = useMemo(() => [
     shuffledLetters.indexOf('R'),
     shuffledLetters.indexOf('U'),
@@ -139,7 +132,7 @@ const ChristmasLights = () => {
   
   useEffect(() => {
     const interval = setInterval(() => {
-      setActiveSequence(prev => (prev + 1) % 3); // 0, 1, 2 döngüsü (R, U, N)
+      setActiveSequence(prev => (prev + 1) % 3); 
     }, 800);
     return () => clearInterval(interval);
   }, []);
@@ -169,61 +162,28 @@ const ChristmasLights = () => {
 // 🌿 Creeping Vines & Atmospheric Spores
 const CreepingVines = () => (
   <div className="absolute inset-0 pointer-events-none z-10 overflow-visible">
-    {/* Left Side Vines */}
     <svg className="absolute -bottom-10 -left-10 w-96 h-96 opacity-60 text-red-900/40 animate-pulse-slow" viewBox="0 0 100 100">
       <path d="M0,100 C30,90 40,60 20,40 C10,30 50,10 60,0" stroke="currentColor" strokeWidth="2" fill="none" />
       <path d="M10,100 C40,80 30,50 60,60 C80,70 90,30 100,20" stroke="currentColor" strokeWidth="3" fill="none" />
       <path d="M-10,90 C20,80 50,80 40,50" stroke="currentColor" strokeWidth="1" fill="none" />
     </svg>
-    
-    {/* Right Side Vines */}
     <svg className="absolute -top-10 -right-10 w-96 h-96 opacity-60 text-red-900/40 animate-pulse-slow rotate-180" viewBox="0 0 100 100">
       <path d="M0,100 C30,90 40,60 20,40 C10,30 50,10 60,0" stroke="currentColor" strokeWidth="2" fill="none" />
       <path d="M10,100 C40,80 30,50 60,60 C80,70 90,30 100,20" stroke="currentColor" strokeWidth="3" fill="none" />
     </svg>
-    
-    {/* Left Middle Vines */}
     <svg className="absolute top-1/2 -left-10 w-80 h-80 opacity-50 text-red-800/30 animate-pulse-slow" viewBox="0 0 100 100" style={{animationDelay: '1s'}}>
       <path d="M0,50 Q20,30 40,50 T80,50" stroke="currentColor" strokeWidth="2" fill="none" />
       <path d="M0,60 Q15,40 30,60 T60,60" stroke="currentColor" strokeWidth="1.5" fill="none" />
     </svg>
-    
-    {/* Right Middle Vines */}
     <svg className="absolute top-1/3 -right-10 w-80 h-80 opacity-50 text-red-800/30 animate-pulse-slow" viewBox="0 0 100 100" style={{animationDelay: '1.5s'}}>
       <path d="M100,50 Q80,30 60,50 T20,50" stroke="currentColor" strokeWidth="2" fill="none" />
       <path d="M100,40 Q85,20 70,40 T40,40" stroke="currentColor" strokeWidth="1.5" fill="none" />
     </svg>
-    
-    {/* Atmospheric Spores - Left Side */}
     {[...Array(15)].map((_, i) => (
-      <div
-        key={`left-spore-${i}`}
-        className="absolute rounded-full bg-red-500/20 blur-sm animate-float-side-spore"
-        style={{
-          left: `${Math.random() * 20}%`,
-          top: `${Math.random() * 100}%`,
-          width: `${Math.random() * 8 + 3}px`,
-          height: `${Math.random() * 8 + 3}px`,
-          animationDelay: `${Math.random() * 5}s`,
-          animationDuration: `${8 + Math.random() * 6}s`
-        }}
-      />
+      <div key={`left-spore-${i}`} className="absolute rounded-full bg-red-500/20 blur-sm animate-float-side-spore" style={{ left: `${Math.random() * 20}%`, top: `${Math.random() * 100}%`, width: `${Math.random() * 8 + 3}px`, height: `${Math.random() * 8 + 3}px`, animationDelay: `${Math.random() * 5}s`, animationDuration: `${8 + Math.random() * 6}s` }} />
     ))}
-    
-    {/* Atmospheric Spores - Right Side */}
     {[...Array(15)].map((_, i) => (
-      <div
-        key={`right-spore-${i}`}
-        className="absolute rounded-full bg-red-500/20 blur-sm animate-float-side-spore"
-        style={{
-          right: `${Math.random() * 20}%`,
-          top: `${Math.random() * 100}%`,
-          width: `${Math.random() * 8 + 3}px`,
-          height: `${Math.random() * 8 + 3}px`,
-          animationDelay: `${Math.random() * 5}s`,
-          animationDuration: `${8 + Math.random() * 6}s`
-        }}
-      />
+      <div key={`right-spore-${i}`} className="absolute rounded-full bg-red-500/20 blur-sm animate-float-side-spore" style={{ right: `${Math.random() * 20}%`, top: `${Math.random() * 100}%`, width: `${Math.random() * 8 + 3}px`, height: `${Math.random() * 8 + 3}px`, animationDelay: `${Math.random() * 5}s`, animationDuration: `${8 + Math.random() * 6}s` }} />
     ))}
   </div>
 );
@@ -240,11 +200,7 @@ export default function Home() {
   
   useEffect(() => {
     const tryAddMiniApp = async (): Promise<void> => {
-      try {
-        await addMiniApp();
-      } catch (error) {
-        console.error('Failed to add mini app:', error);
-      }
+      try { await addMiniApp(); } catch (error) { console.error('Failed to add mini app:', error); }
     };
     tryAddMiniApp();
   }, [addMiniApp]);
@@ -253,77 +209,34 @@ export default function Home() {
     const initializeFarcaster = async (): Promise<void> => {
       try {
         await new Promise(resolve => setTimeout(resolve, 100));
-        
         if (document.readyState !== 'complete') {
-          await new Promise<void>(resolve => {
-            if (document.readyState === 'complete') {
-              resolve();
-            } else {
-              window.addEventListener('load', () => resolve(), { once: true });
-            }
-          });
+          await new Promise<void>(resolve => { if (document.readyState === 'complete') { resolve(); } else { window.addEventListener('load', () => resolve(), { once: true }); } });
         }
-        
         await sdk.actions.ready();
         console.log('✅ Farcaster SDK initialized successfully');
       } catch (error) {
         console.error('Failed to initialize Farcaster SDK:', error);
-        
-        setTimeout(async () => {
-          try {
-            await sdk.actions.ready();
-            console.log('Farcaster SDK initialized on retry');
-          } catch (retryError) {
-            console.error('Farcaster SDK retry failed:', retryError);
-          }
-        }, 1000);
+        setTimeout(async () => { try { await sdk.actions.ready(); console.log('Farcaster SDK initialized on retry'); } catch (retryError) { console.error('Farcaster SDK retry failed:', retryError); } }, 1000);
       }
     };
-    
     initializeFarcaster();
   }, []);
 
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
   
-  // Auto-connect wallet ONLY when in Farcaster and authenticated
+  // Auto-connect wallet
   useEffect(() => {
     const autoConnect = async (): Promise<void> => {
-      // Only work in Farcaster context
-      if (!isInFarcaster) {
-        console.log('⚠️ Not in Farcaster - wallet connection disabled');
-        return;
-      }
-      
+      if (!isInFarcaster) return;
       if (isAuthenticated && farcasterAddress && !isConnected) {
-        console.log('🔄 Auto-connecting Farcaster wallet...', {
-          isInFarcaster,
-          isAuthenticated,
-          farcasterAddress: farcasterAddress.slice(0, 6) + '...' + farcasterAddress.slice(-4),
-          isConnected
-        });
-        
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
         try {
-          // In Farcaster, use injected connector (Farcaster provides window.ethereum)
-          const injectedConnector = connectors.find(
-            (c) => c.id === 'injected' || c.type === 'injected'
-          );
-          
-          if (injectedConnector) {
-            console.log('✅ Found Farcaster injected connector, auto-connecting...');
-            await connect({ connector: injectedConnector });
-            console.log('✅ Farcaster wallet auto-connected successfully!');
-          } else {
-            console.log('⚠️ Injected connector not found in Farcaster');
-          }
-        } catch (error) {
-          console.error('❌ Auto-connect failed:', error);
-        }
+          const injectedConnector = connectors.find((c) => c.id === 'injected' || c.type === 'injected');
+          if (injectedConnector) { await connect({ connector: injectedConnector }); }
+        } catch (error) { console.error('❌ Auto-connect failed:', error); }
       }
     };
-    
     autoConnect();
   }, [isInFarcaster, isAuthenticated, farcasterAddress, isConnected, connect, connectors]);
 
@@ -335,489 +248,214 @@ export default function Home() {
   const [userMintedNFTs, setUserMintedNFTs] = useState<MintedNFT[]>([]);
   const [communityNFTs, setCommunityNFTs] = useState<MintedNFT[]>([]);
   
-  // Mouse/Touch Effect State - Initialize to center of screen
-  const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ 
-    x: typeof window !== 'undefined' ? window.innerWidth / 2 : 0, 
-    y: typeof window !== 'undefined' ? window.innerHeight / 2 : 0 
-  });
+  const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: typeof window !== 'undefined' ? window.innerWidth / 2 : 0, y: typeof window !== 'undefined' ? window.innerHeight / 2 : 0 });
 
   // Web3 Hooks
   const { data: usdcBalance } = useReadContract({ address: USDC_ADDRESS, abi: USDC_ABI, functionName: 'balanceOf', args: address ? [address] : undefined });
   const { data: allowance, refetch: refetchAllowance } = useReadContract({ address: USDC_ADDRESS, abi: USDC_ABI, functionName: 'allowance', args: address ? [address, NFT_CONTRACT_ADDRESS] : undefined });
   const { data: totalSupply } = useReadContract({ address: NFT_CONTRACT_ADDRESS, abi: NFT_ABI, functionName: 'totalSupply' });
-  const { data: approveHash, isPending: isApprovePending, writeContract: approveWrite, error: approveError } = useWriteContract();
-  const { data: mintHash, isPending: isMintPending, writeContract: mintWrite, error: mintError } = useWriteContract();
+  const { data: approveHash, writeContract: approveWrite, error: approveError } = useWriteContract();
+  const { data: mintHash, writeContract: mintWrite, error: mintError } = useWriteContract();
   const { isLoading: isApproveConfirming, isSuccess: isApproveConfirmed, error: approveReceiptError } = useWaitForTransactionReceipt({ hash: approveHash });
   const { isLoading: isMintConfirming, isSuccess: isMintConfirmed, data: mintReceipt, error: mintReceiptError } = useWaitForTransactionReceipt({ hash: mintHash });
 
-  // Computed
   const totalCost = useMemo(() => parseUnits((parseFloat(PACK_PRICE) * packCount).toString(), 6), [packCount]);
   const hasEnoughBalance = useMemo(() => usdcBalance ? (usdcBalance as bigint) >= totalCost : false, [usdcBalance, totalCost]);
   const needsApproval = useMemo(() => allowance ? (allowance as bigint) < totalCost : true, [allowance, totalCost]);
 
+  // 🔥 Unique Collection Count
+  const uniqueCollectedCount = useMemo(() => {
+    const uniqueIds = new Set(userMintedNFTs.map(nft => nft.artId));
+    uniqueIds.delete(undefined);
+    return uniqueIds.size;
+  }, [userMintedNFTs]);
+
   // Effects
-  
-  // Flashlight effect - Mouse and Touch support
   useEffect(() => {
-    // Set initial position to center on mount
-    setMousePos({ 
-      x: window.innerWidth / 2, 
-      y: window.innerHeight / 2 
-    });
-
-    // Mouse move handler
-    const handleMouseMove = (e: MouseEvent): void => {
-      setMousePos({ x: e.clientX, y: e.clientY });
-    };
-
-    // Touch move handler for mobile
-    const handleTouchMove = (e: TouchEvent): void => {
-      if (e.touches.length > 0) {
-        const touch = e.touches[0];
-        setMousePos({ x: touch.clientX, y: touch.clientY });
-      }
-    };
-
-    // Add event listeners
+    setMousePos({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+    const handleMouseMove = (e: MouseEvent): void => { setMousePos({ x: e.clientX, y: e.clientY }); };
+    const handleTouchMove = (e: TouchEvent): void => { if (e.touches.length > 0) { const touch = e.touches[0]; setMousePos({ x: touch.clientX, y: touch.clientY }); } };
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('touchmove', handleTouchMove, { passive: true });
-    
-    // Cleanup
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('touchmove', handleTouchMove);
-    };
+    return () => { window.removeEventListener('mousemove', handleMouseMove); window.removeEventListener('touchmove', handleTouchMove); };
   }, []);
 
   useEffect(() => {
     if (address) {
       const stored = localStorage.getItem(`nfts_${address}`);
-      if (stored) {
-        try {
-          setUserMintedNFTs(JSON.parse(stored));
-        } catch (e) {
-          console.error('Failed to parse stored NFTs', e);
-        }
-      }
+      if (stored) { try { setUserMintedNFTs(JSON.parse(stored)); } catch (e) { console.error('Failed to parse stored NFTs', e); } }
     }
   }, [address]);
 
-  // 🔥 Fetch REAL minted NFTs from contract PackOpened events
-  // Added debounce to reduce unnecessary fetches
+  // Fetch recent mints
   useEffect(() => {
     const fetchRecentMints = async (): Promise<void> => {
       if (!publicClient || !totalSupply || typeof totalSupply !== 'bigint') return;
-      
       try {
         const supply = Number(totalSupply);
         if (supply === 0) return;
-        
-        console.log('📦 Fetching recent mints from contract events...');
-        
-        // Fetch PackOpened events from the last 1,000 blocks (optimized for bandwidth)
         const currentBlock = await publicClient.getBlockNumber();
         const fromBlock = currentBlock - BigInt(1000);
         
         const logs = await publicClient.getLogs({
           address: NFT_CONTRACT_ADDRESS,
-          event: {
-            type: 'event',
-            name: 'PackOpened',
-            inputs: [
-              { indexed: true, name: 'buyer', type: 'address' },
-              { indexed: false, name: 'tokenId', type: 'uint256' },
-              { indexed: false, name: 'artId', type: 'uint256' },
-              { indexed: false, name: 'fid', type: 'string' }
-            ]
-          },
+          event: { type: 'event', name: 'PackOpened', inputs: [ { indexed: true, name: 'buyer', type: 'address' }, { indexed: false, name: 'tokenId', type: 'uint256' }, { indexed: false, name: 'artId', type: 'uint256' }, { indexed: false, name: 'fid', type: 'string' } ] },
           fromBlock,
           toBlock: 'latest'
         });
         
-        console.log(`✅ Found ${logs.length} PackOpened events`);
-        
         if (logs.length === 0) {
-          // Fallback: If no events found in recent blocks, show last 10 tokens with placeholder art
           const nfts: MintedNFT[] = [];
-          const startId = Math.max(1, supply - 9); // Last 10 NFTs
-          for (let i = supply; i >= startId; i--) {
-            nfts.push({ 
-              id: `community-${i}`, 
-              image: `ipfs://${IPFS_CID}/${(i % TOTAL_ART_COUNT) || TOTAL_ART_COUNT}.png`, 
-              tokenId: i.toString() 
-            });
-          }
+          const startId = Math.max(1, supply - 9);
+          for (let i = supply; i >= startId; i--) { nfts.push({ id: `community-${i}`, image: `ipfs://${IPFS_CID}/${(i % TOTAL_ART_COUNT) || TOTAL_ART_COUNT}.png`, tokenId: i.toString() }); }
           setCommunityNFTs(nfts);
           return;
         }
         
-        // Decode events and extract artIds
-        const mintedNFTs = logs
-          .map((log) => {
+        const mintedNFTs = logs.map((log) => {
             try {
-              const decoded = decodeEventLog({
-                abi: NFT_ABI,
-                data: log.data,
-                topics: log.topics
-              });
+              const decoded = decodeEventLog({ abi: NFT_ABI, data: log.data, topics: log.topics });
               const args = decoded.args as { buyer: Address; tokenId: bigint; artId: bigint; fid: string };
-              
-              return {
-                id: `community-${args.tokenId}`,
-                image: `ipfs://${IPFS_CID}/${args.artId}.png`,
-                tokenId: args.tokenId.toString(),
-                artId: Number(args.artId)
-              };
-            } catch (error) {
-              console.error('Failed to decode log:', error);
-              return null;
-            }
-          })
-          .filter((nft) => nft !== null)
-          .reverse() // Show newest first
-          .slice(0, 10); // Show last 10 mints (optimized for bandwidth)
+              return { id: `community-${args.tokenId}`, image: `ipfs://${IPFS_CID}/${args.artId}.png`, tokenId: args.tokenId.toString(), artId: Number(args.artId) };
+            } catch (error) { return null; }
+          }).filter((nft) => nft !== null).reverse().slice(0, 10);
         
-        console.log(`🎨 Displaying ${mintedNFTs.length} recent NFTs with real artIds`);
-        
-        // If we got less than 10, fetch the remaining from totalSupply
         if (mintedNFTs.length < 10 && supply > 0) {
-          const remaining = 10 - mintedNFTs.length;
-          const fallbackNFTs: MintedNFT[] = [];
-          const startId = Math.max(1, supply - remaining + 1);
-          
-          for (let i = supply; i >= startId && fallbackNFTs.length < remaining; i--) {
-            // Skip if already in mintedNFTs
-            if (!mintedNFTs.find(nft => nft.tokenId === i.toString())) {
-              fallbackNFTs.push({ 
-                id: `community-${i}`, 
-                image: `ipfs://${IPFS_CID}/${(i % TOTAL_ART_COUNT) || TOTAL_ART_COUNT}.png`, 
-                tokenId: i.toString() 
-              });
-            }
-          }
-          
-          setCommunityNFTs([...mintedNFTs, ...fallbackNFTs].slice(0, 10));
+           const remaining = 10 - mintedNFTs.length;
+           const fallbackNFTs: MintedNFT[] = [];
+           const startId = Math.max(1, supply - remaining + 1);
+           for (let i = supply; i >= startId && fallbackNFTs.length < remaining; i--) {
+             if (!mintedNFTs.find(nft => nft?.tokenId === i.toString())) {
+               fallbackNFTs.push({ id: `community-${i}`, image: `ipfs://${IPFS_CID}/${(i % TOTAL_ART_COUNT) || TOTAL_ART_COUNT}.png`, tokenId: i.toString() });
+             }
+           }
+           setCommunityNFTs([...(mintedNFTs as MintedNFT[]), ...fallbackNFTs].slice(0, 10));
         } else {
-          setCommunityNFTs(mintedNFTs);
+           setCommunityNFTs(mintedNFTs as MintedNFT[]);
         }
-        
       } catch (error) {
         console.error('❌ Error fetching recent mints:', error);
-        
-        // Fallback to showing last 10 token IDs with placeholder art
         const supply = Number(totalSupply);
         const nfts: MintedNFT[] = [];
-        const startId = Math.max(1, supply - 9); // Last 10 NFTs
-        for (let i = supply; i >= startId; i--) {
-          nfts.push({ 
-            id: `community-${i}`, 
-            image: `ipfs://${IPFS_CID}/${(i % TOTAL_ART_COUNT) || TOTAL_ART_COUNT}.png`, 
-            tokenId: i.toString() 
-          });
-        }
+        const startId = Math.max(1, supply - 9);
+        for (let i = supply; i >= startId; i--) { nfts.push({ id: `community-${i}`, image: `ipfs://${IPFS_CID}/${(i % TOTAL_ART_COUNT) || TOTAL_ART_COUNT}.png`, tokenId: i.toString() }); }
         setCommunityNFTs(nfts);
       }
     };
-    
-    // Debounce: Wait 2 seconds before fetching to avoid excessive requests
-    const timer = setTimeout(() => {
-      fetchRecentMints();
-    }, 2000);
-    
+    const timer = setTimeout(() => { fetchRecentMints(); }, 2000);
     return () => clearTimeout(timer);
   }, [totalSupply, publicClient]);
 
-  // Track approval hash creation
-  useEffect(() => {
-    if (approveHash) {
-      console.log('✅ Approval transaction submitted!', {
-        hash: approveHash,
-        explorer: `https://basescan.org/tx/${approveHash}`
-      });
-    }
-  }, [approveHash]);
-
-  // Track approval confirmation
-  useEffect(() => {
-    if (isApproveConfirmed && stage === 'approving') {
-      console.log('✅ Approval confirmed! Proceeding to mint...');
-      setStage('approved');
-      refetchAllowance();
-      
-      // Automatically proceed to mint after approval
-      setTimeout(() => {
-        handleMint();
-      }, 500);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // ✅ BİLDİRİM TEMİZLİĞİ: Sadece Hatalar Toast Olarak Gösteriliyor
+  useEffect(() => { 
+    if (isApproveConfirmed && stage === 'approving') { 
+        setStage('approved'); 
+        refetchAllowance(); 
+        setTimeout(() => { handleMint(); }, 500); 
+    } 
   }, [isApproveConfirmed, stage, refetchAllowance]);
 
-  // Handle approval errors
-  useEffect(() => {
-    if (approveError && stage === 'approving') {
-      console.error('❌ Approval error:', approveError);
-      setStage('idle');
-    }
-  }, [approveError, stage]);
+  useEffect(() => { if (approveError && stage === 'approving') { console.error('Approval error:', approveError); setStage('idle'); } }, [approveError, stage]);
+  useEffect(() => { if (approveReceiptError && stage === 'approving') { console.error('Approval receipt error:', approveReceiptError); setStage('idle'); } }, [approveReceiptError, stage]);
+  useEffect(() => { if (mintError && stage === 'minting') { console.error('Mint error:', mintError); setStage('idle'); toast.error('Mint Failed'); } }, [mintError, stage]);
+  useEffect(() => { if (mintReceiptError && stage === 'minting') { console.error('Mint receipt error:', mintReceiptError); setStage('idle'); toast.error('Mint Failed'); } }, [mintReceiptError, stage]);
 
-  // Handle approval receipt errors
-  useEffect(() => {
-    if (approveReceiptError && stage === 'approving') {
-      console.error('❌ Approval receipt error:', approveReceiptError);
-      setStage('idle');
-    }
-  }, [approveReceiptError, stage]);
-
-  // Track mint hash creation
-  useEffect(() => {
-    if (mintHash) {
-      console.log('✅ Mint transaction submitted!', {
-        hash: mintHash,
-        explorer: `https://basescan.org/tx/${mintHash}`
-      });
-    }
-  }, [mintHash]);
-
-  // Handle mint errors
-  useEffect(() => {
-    if (mintError && stage === 'minting') {
-      console.error('❌ Mint error:', mintError);
-      setStage('idle');
-    }
-  }, [mintError, stage]);
-
-  // Handle mint receipt errors
-  useEffect(() => {
-    if (mintReceiptError && stage === 'minting') {
-      console.error('❌ Mint receipt error:', mintReceiptError);
-      setStage('idle');
-    }
-  }, [mintReceiptError, stage]);
-
-  // 🔥 CRITICAL FIX: Listen to PackOpened events and get REAL artIds from contract
   useEffect(() => {
     if (isMintConfirmed && mintReceipt && stage === 'minting' && address) {
-      console.log('✅ Mint confirmed! Reading PackOpened events from transaction...');
-      
       const processEvents = async (): Promise<void> => {
         try {
-          // Filter PackOpened events from transaction logs
-          const packOpenedEvents = mintReceipt.logs
-            .filter((log: Log) => {
-              try {
-                const decoded = decodeEventLog({
-                  abi: NFT_ABI,
-                  data: log.data,
-                  topics: log.topics,
-                });
-                return decoded.eventName === 'PackOpened';
-              } catch {
-                return false;
-              }
-            })
-            .map((log: Log) => {
-              const decoded = decodeEventLog({
-                abi: NFT_ABI,
-                data: log.data,
-                topics: log.topics,
-              });
-              return decoded.args as { buyer: Address; tokenId: bigint; artId: bigint; fid: string };
-            });
+          const packOpenedEvents = mintReceipt.logs.filter((log: Log) => {
+              try { return decodeEventLog({ abi: NFT_ABI, data: log.data, topics: log.topics }).eventName === 'PackOpened'; } catch { return false; }
+            }).map((log: Log) => decodeEventLog({ abi: NFT_ABI, data: log.data, topics: log.topics }).args as { buyer: Address; tokenId: bigint; artId: bigint; fid: string });
 
-          console.log('📦 PackOpened events found:', packOpenedEvents);
+          if (packOpenedEvents.length === 0) { setStage('idle'); return; }
 
-          if (packOpenedEvents.length === 0) {
-            console.error('⚠️ No PackOpened events found in transaction');
-            setStage('idle');
-            return;
-          }
-
-          // Create revealed cards using REAL artIds from contract events
-          const cards: RevealedCard[] = packOpenedEvents.map((event) => {
-            const artId = Number(event.artId);
-            const tokenId = Number(event.tokenId);
-            console.log(`🎨 Token #${tokenId} -> Art ID #${artId}`);
-            
-            return {
-              tokenURI: `ipfs://${IPFS_CID}/${artId}.png`,
-              number: artId,
-              tokenId: tokenId
-            };
-          });
-
+          const cards: RevealedCard[] = packOpenedEvents.map((event) => ({ tokenURI: `ipfs://${IPFS_CID}/${Number(event.artId)}.png`, number: Number(event.artId), tokenId: Number(event.tokenId) }));
           setRevealedCards(cards);
           setCurrentCardIndex(0);
           setStage('animating');
 
-          // Store NFTs in localStorage with correct artIds
-          const newNFTs: MintedNFT[] = cards.map((card) => ({ 
-            id: `${card.tokenId}`, 
-            image: card.tokenURI,
-            tokenId: card.tokenId.toString()
-          }));
-
+          const newNFTs: MintedNFT[] = cards.map((card) => ({ id: `${card.tokenId}`, image: card.tokenURI, tokenId: card.tokenId.toString(), artId: card.number }));
           const stored = localStorage.getItem(`nfts_${address}`);
           const existing: MintedNFT[] = stored ? JSON.parse(stored) : [];
           const updated = [...newNFTs, ...existing];
           localStorage.setItem(`nfts_${address}`, JSON.stringify(updated));
           setUserMintedNFTs(updated);
-
-          console.log(`🎉 ${packOpenedEvents.length} NFT${packOpenedEvents.length > 1 ? 's' : ''} minted successfully!`);
-        } catch (error) {
-          console.error('❌ Error processing PackOpened events:', error);
-          setStage('idle');
-        }
+        } catch (error) { console.error('❌ Error processing PackOpened events:', error); setStage('idle'); }
       };
-
       processEvents();
     }
   }, [isMintConfirmed, mintReceipt, stage, address]);
 
   // Handlers
   const handleApprove = (): void => {
-    if (!isConnected || !address) {
-      console.error('❌ Wallet not connected in handleApprove');
-      return;
-    }
-    
-    if (!hasEnoughBalance) {
-      console.error('❌ Insufficient USDC balance');
-      return;
-    }
-    
-    console.log('✅ Starting approval transaction...', {
-      from: address,
-      spender: NFT_CONTRACT_ADDRESS,
-      amount: totalCost.toString(),
-      amountUSDC: (parseFloat(PACK_PRICE) * packCount).toFixed(2)
-    });
-    
+    if (!isConnected || !address) return;
+    if (!hasEnoughBalance) { toast.error("Insufficient USDC Balance"); return; }
     setStage('approving');
-    
-    // This will trigger the wallet popup
-    approveWrite({ 
-      address: USDC_ADDRESS, 
-      abi: USDC_ABI, 
-      functionName: 'approve', 
-      args: [NFT_CONTRACT_ADDRESS, totalCost] 
-    });
-    
-    console.log('🔄 Approval request sent to wallet - waiting for user confirmation...');
+    approveWrite({ address: USDC_ADDRESS, abi: USDC_ABI, functionName: 'approve', args: [NFT_CONTRACT_ADDRESS, totalCost] });
   };
 
   const handleMint = (): void => {
-    if (!isConnected || !address) {
-      console.error('❌ Wallet not connected in handleMint');
-      return;
-    }
-    
-    // Get Farcaster ID if available, otherwise use wallet address
+    if (!isConnected || !address) return;
     const fid: string = userData?.fid?.toString() || address.slice(2, 10);
-    
-    console.log('🎨 Starting mint with openPacks...', { 
-      packCount,
-      fid,
-      contract: NFT_CONTRACT_ADDRESS,
-      from: address
-    });
-    
     setStage('minting');
-    
-    // Call openPacks with count and fid
-    // 🎲 IMPORTANT: The smart contract generates RANDOM artIds on-chain using Chainlink VRF or block-based randomness
-    // The client does NOT control which NFTs are selected - it's purely random from the contract
-    mintWrite({ 
-      address: NFT_CONTRACT_ADDRESS, 
-      abi: NFT_ABI, 
-      functionName: 'openPacks', 
-      args: [BigInt(packCount), fid] 
-    });
-    
-    console.log('✅ openPacks transaction initiated - waiting for on-chain randomization', {
-      method: 'openPacks',
-      args: { count: packCount, fid },
-      note: 'artIds will be randomly selected by the smart contract'
-    });
+    mintWrite({ address: NFT_CONTRACT_ADDRESS, abi: NFT_ABI, functionName: 'openPacks', args: [BigInt(packCount), fid] });
   };
 
   const handleOpenPack = async (): Promise<void> => {
-    // Prevent multiple calls if already processing
-    if (stage !== 'idle' && stage !== 'approved') {
-      console.log('⏸️ Operation already in progress, stage:', stage);
-      return;
-    }
-    
-    // Step 1: Check if in Farcaster
-    if (!isInFarcaster) {
-      console.log('⚠️ This app only works in Farcaster Mini App');
-      alert('This app is only available inside Farcaster. Please open it in the Farcaster app.');
-      return;
-    }
-    
-    // Step 2: Check wallet connection
+    if (stage !== 'idle' && stage !== 'approved') return;
+    if (!isInFarcaster) { alert('This app is only available inside Farcaster.'); return; }
     if (!isConnected || !address) {
-      console.log('🔌 Wallet not connected - waiting for auto-connect...');
-      
-      // Try to connect using Farcaster injected connector
       try {
-        const injectedConnector = connectors.find(
-          (c) => c.id === 'injected' || c.type === 'injected'
-        );
-        
-        if (injectedConnector) {
-          console.log('✅ Connecting Farcaster wallet...');
-          await connect({ connector: injectedConnector });
-          console.log('✅ Wallet connected successfully!');
-        } else {
-          console.error('❌ Farcaster wallet connector not found');
-          alert('Unable to connect wallet. Please try again.');
-        }
-        return;
-      } catch (error) {
-        console.error('❌ Failed to connect wallet:', error);
-        alert('Failed to connect wallet. Please try again.');
-        return;
-      }
+        const injectedConnector = connectors.find((c) => c.id === 'injected' || c.type === 'injected');
+        if (injectedConnector) { await connect({ connector: injectedConnector }); return; }
+        else { toast.error("Wallet connection failed"); return; }
+      } catch (error) { toast.error('Failed to connect wallet'); return; }
     }
-    
-    console.log('📦 Opening pack...', { 
-      stage, 
-      needsApproval, 
-      allowance: allowance?.toString(),
-      totalCost: totalCost.toString(),
-      packCount,
-      isInFarcaster,
-      farcasterAddress
-    });
-    
-    // Step 2: Check if approval is needed
-    if (needsApproval) {
-      console.log('🔐 Approval needed, calling handleApprove...');
-      handleApprove();
-    } else {
-      console.log('✅ Already approved, calling handleMint...');
-      handleMint();
-    }
+    if (needsApproval) handleApprove(); else handleMint();
   };
 
   const handleAnimationComplete = (): void => {
-    if (currentCardIndex < revealedCards.length - 1) {
-      setCurrentCardIndex(prev => prev + 1);
-    } else {
-      setStage('revealed');
+    if (currentCardIndex < revealedCards.length - 1) { setCurrentCardIndex(prev => prev + 1); } else { setStage('revealed'); }
+  };
+
+  const handleContinue = (): void => { setStage('idle'); setRevealedCards([]); setCurrentCardIndex(0); setPackCount(1); };
+  const handleSkipToReveal = (): void => { setStage('revealed'); };
+
+  // ✅ YENİ SHARE FONKSİYONU (Embeds + SDK)
+  const handleShare = async (customText?: string, customImage?: string) => {
+    setIsLoading(true);
+    try {
+        let shareText = customText || `Just minted ${revealedCards.length} Stranger Things NFT${revealedCards.length > 1 ? 's' : ''} from the Upside Down! 🔴⚡\n\n${revealedCards.map(c => `📄 Artifact #${c.number}`).join('\n')}\n\nExperience: https://voltpacks.xyz\n\n#StrangerThings #NFT #Base`;
+        
+        // Varsayılan embed görsel (İlk kart veya placeholder)
+        let rawImage = customImage || (revealedCards.length > 0 ? revealedCards[0].tokenURI : "https://i.imgur.com/hTYcwAu.png");
+        let embedImage = ipfsToCloudflare(rawImage);
+        
+        const encodedText = encodeURIComponent(shareText);
+        const encodedEmbed = encodeURIComponent(embedImage);
+        
+        // Farcaster composer URL
+        const url = `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=${encodedEmbed}`;
+        
+        // SDK ile aç (_blank yok)
+        if (isInFarcaster) {
+            await sdk.actions.openUrl(url);
+        } else {
+            window.open(url, '_blank');
+        }
+    } catch (e) {
+        console.error("Share failed", e);
+    } finally {
+        setIsLoading(false);
     }
   };
 
-  const handleContinue = (): void => {
-    setStage('idle');
-    setRevealedCards([]);
-    setCurrentCardIndex(0);
-    setPackCount(1);
-  };
-
-  const handleSkipToReveal = (): void => {
-    console.log('⏭️ Skipping all animations - jumping to reveal');
-    setStage('revealed');
+  // ✅ GALERİ PAYLAŞIM FONKSİYONU
+  const handleShareCollection = () => {
+     const shareText = `I have collected ${uniqueCollectedCount} / ${TOTAL_ART_COUNT} unique artifacts from the Upside Down! 🔴⚡\n\nCan you beat my collection?\n\nMint yours at: https://voltpacks.xyz`;
+     const embedImage = userMintedNFTs.length > 0 ? userMintedNFTs[0].image : "https://i.imgur.com/hTYcwAu.png";
+     handleShare(shareText, embedImage);
   };
 
   // ========================
@@ -826,6 +464,61 @@ export default function Home() {
 
   if (stage === 'animating' && revealedCards[currentCardIndex]) {
     return <PackOpening cardImage={revealedCards[currentCardIndex].tokenURI} cardNumber={currentCardIndex + 1} totalCards={revealedCards.length} onAnimationComplete={handleAnimationComplete} onSkip={handleSkipToReveal} />;
+  }
+
+  // 🔥 YENİ GALERİ EKRANI (MY COLLECTION)
+  if (stage === 'gallery') {
+    return (
+        <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center font-sans relative overflow-x-hidden selection:bg-red-500 selection:text-black">
+             <div className="fixed inset-0 pointer-events-none z-0">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,#4a0000_0%,#000000_70%)] opacity-80"></div>
+                <div className="absolute inset-0 bg-red-600/5 animate-pulse-slow mix-blend-color-dodge"></div>
+            </div>
+            
+            <div className="relative z-10 w-full max-w-7xl px-4 pt-10 pb-40 flex flex-col items-center">
+                <div className="text-center mb-8">
+                    <h2 className="text-4xl md:text-6xl text-red-600 font-bold mb-2 tracking-tighter drop-shadow-[0_2px_10px_rgba(255,0,0,0.8)]" style={{ fontFamily: 'ITC Benguiat, serif' }}>MY COLLECTION</h2>
+                    <p className="text-gray-400 font-mono tracking-widest text-sm mb-2">
+                        PROGRESS: <span className="text-white font-bold text-lg">{uniqueCollectedCount}</span> / {TOTAL_ART_COUNT}
+                    </p>
+                    {/* Progress Bar */}
+                    <div className="w-64 h-3 bg-gray-900 rounded-full overflow-hidden border border-gray-700 relative mx-auto shadow-[0_0_15px_rgba(255,0,0,0.3)]">
+                        <div className="absolute inset-0 bg-red-900/30"></div>
+                        <div className="h-full bg-gradient-to-r from-red-800 to-red-500 shadow-[0_0_10px_red]" style={{ width: `${(uniqueCollectedCount / TOTAL_ART_COUNT) * 100}%` }}></div>
+                    </div>
+                </div>
+
+                {userMintedNFTs.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 opacity-50">
+                        <p className="text-red-500 font-mono text-xl">NO ARTIFACTS FOUND</p>
+                        <p className="text-gray-500 text-sm mt-2">Open packs to start collecting</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full">
+                        {userMintedNFTs.map((nft, idx) => (
+                             <div key={`${nft.id}-${idx}`} className="relative aspect-[2/3] bg-gray-900 rounded border border-gray-800 overflow-hidden group hover:border-red-500 transition-all duration-300 shadow-lg">
+                                <div className="absolute top-1 left-1 bg-black/80 px-2 py-0.5 rounded text-[8px] text-white font-mono z-20 border border-gray-700">#{nft.artId || '?'}</div>
+                                <img src={ipfsToHttp(nft.image)} alt={`Artifact`} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" loading="lazy" />
+                             </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Sabit Alt Panel (Galeri İçin) */}
+            <div className="fixed bottom-0 left-0 w-full z-50 pointer-events-none">
+                 <div className="absolute bottom-0 w-full h-40 bg-gradient-to-t from-black via-black/90 to-transparent"></div>
+                 <div className="relative w-full pb-6 flex flex-col sm:flex-row justify-center items-center gap-4 h-auto pointer-events-auto px-4">
+                     <button onClick={handleShareCollection} className="px-6 py-3 bg-black border-2 border-purple-800 text-purple-400 font-bold uppercase hover:text-white hover:border-purple-500 transition-all skew-x-[-10deg]">
+                        <span className="skew-x-[10deg]">SHARE PROGRESS</span>
+                     </button>
+                     <button onClick={() => setStage('idle')} className="px-8 py-3 bg-black border-2 border-red-800 text-red-600 font-bold uppercase hover:text-white hover:border-red-500 transition-all skew-x-[-10deg]">
+                        <span className="skew-x-[10deg]">RETURN</span>
+                     </button>
+                 </div>
+            </div>
+        </div>
+    );
   }
 
   // ==========================================
@@ -849,7 +542,7 @@ export default function Home() {
 
         {/* --- KATMAN 2: İÇERİK (Scroll Edilebilir) --- */}
         <div className="relative z-10 w-full max-w-6xl px-3 pt-10 md:pt-12 pb-24 md:pb-32 flex flex-col items-center">
-           
+            
            {/* 🎬 SİNEMATİK BAŞLIK */}
            <div className="relative mb-10 md:mb-16 group text-center">
               <div className="absolute -inset-5 md:-inset-8 bg-red-600/30 blur-[32px] md:blur-[48px] opacity-50 group-hover:opacity-100 transition duration-1000"></div>
@@ -900,15 +593,11 @@ export default function Home() {
                           className="w-full h-full object-cover opacity-90 grayscale group-hover:grayscale-0 transition-all duration-700"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            // Try different IPFS gateways in sequence
                             if (target.src.includes('ipfs.io')) {
-                              console.log('⚠️ ipfs.io gateway failed, trying dweb.link...');
                               target.src = target.src.replace('ipfs.io', 'dweb.link');
                             } else if (target.src.includes('dweb.link')) {
-                              console.log('⚠️ dweb.link gateway failed, trying cloudflare-ipfs.com...');
                               target.src = target.src.replace('dweb.link', 'cloudflare-ipfs.com');
                             } else if (target.src.includes('cloudflare-ipfs.com')) {
-                              console.log('❌ All IPFS gateways failed, showing placeholder');
                               target.src = 'https://placehold.co/320x480/111/red?text=CLASSIFIED';
                             }
                           }}
@@ -942,96 +631,28 @@ export default function Home() {
              
              {/* Buton Container - Flex Column on Mobile, Row on Desktop */}
              <div className="relative w-full pb-5 md:pb-8 flex flex-col sm:flex-row justify-center items-center gap-3 h-auto pointer-events-auto px-3">
-                  {/* Share on Farcaster Button */}
-                  <button 
-                    onClick={async () => {
-                      const count = revealedCards.length;
-                      
-                      // Fetch 3 random active Farcaster users from Neynar
-                      let randomUsers: string[] = [];
-                      try {
-                        console.log('🔄 Fetching random users from Neynar...');
-                        const response = await fetch('/api/neynar-users');
-                        console.log('📡 Neynar API Response Status:', response.status);
-                        const data = await response.json();
-                        console.log('📦 Neynar API Data:', data);
-                        randomUsers = data.usernames || [];
-                        console.log('✅ Random users fetched:', randomUsers);
-                        
-                        // Fallback: If API fails or returns empty, use some popular Farcaster accounts
-                        if (randomUsers.length === 0) {
-                          console.log('⚠️ No users from API, using fallback accounts');
-                          randomUsers = ['dwr', 'jessepollak', 'base'];
-                        }
-                      } catch (error) {
-                        console.error('❌ Failed to fetch random users:', error);
-                        // Fallback to popular Farcaster accounts
-                        randomUsers = ['dwr', 'jessepollak', 'base'];
-                        console.log('🔄 Using fallback accounts:', randomUsers);
-                      }
-                      
-                      // Create mention text for random users (at the END of the message)
-                      const mentions = randomUsers.length > 0 
-                        ? '\n\n' + randomUsers.map(username => `@${username}`).join(' ')
-                        : '';
-                      
-                      console.log('📝 Mentions string:', mentions);
-                      
-                      // Create text with random user mentions AT THE END
-                      const text = encodeURIComponent(
-                        `Just minted ${count} Stranger Things NFT${count > 1 ? 's' : ''} from the Upside Down! 🔴⚡
+                 {/* Share on Farcaster Button (Updated to use SDK) */}
+                 <button 
+                   onClick={() => handleShare()}
+                   className="group relative px-5 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 bg-black border-2 border-purple-800 text-purple-500 font-bold text-sm sm:text-base md:text-lg tracking-[0.12em] sm:tracking-[0.16em] uppercase transition-all duration-300 hover:text-white hover:border-purple-500 overflow-hidden skew-x-[-10deg]"
+                 >
+                    {/* Hover Arka Planı */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-700 to-pink-600 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out skew-x-[10deg] origin-bottom"></div>
+                    
+                    {/* Buton Metni */}
+                    <span className="relative z-10 flex items-center gap-1.5 sm:gap-2 skew-x-[10deg] text-center">
+                        <span className="hidden md:inline">SHARE ON FARCASTER</span>
+                        <span className="md:hidden">SHARE</span>
+                    </span>
 
-Experience: https://www.voltpacks.xyz
+                    {/* Neon Glow Efekti */}
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition duration-300 shadow-[0_0_30px_rgba(168,85,247,0.6)]"></div>
+                 </button>
 
-#StrangerThings #NFT #Base #Web3${mentions}`
-                      );
-                      
-                      console.log('🔗 Final share URL text:', decodeURIComponent(text));
-                      
-                      // Add NFT images as embeds (Farcaster supports up to 4 embeds)
-                      // Using Cloudflare IPFS gateway for better Farcaster compatibility and faster loading
-                      const embeds = revealedCards.slice(0, 4).map(card => {
-                        const cloudflareUrl = ipfsToCloudflare(card.tokenURI);
-                        console.log('📸 Adding embed:', cloudflareUrl);
-                        return `&embeds[]=${encodeURIComponent(cloudflareUrl)}`;
-                      }).join('');
-                      
-                      console.log('🖼️ Total embeds:', revealedCards.slice(0, 4).length);
-                      
-                      const url = `https://warpcast.com/~/compose?text=${text}${embeds}`;
-                      
-                      // If in Farcaster, use SDK to open as embed
-                      if (isInFarcaster) {
-                        try {
-                          await sdk.actions.openUrl(url);
-                          console.log('✅ Opened Warpcast composer in Farcaster embed');
-                        } catch (error) {
-                          console.error('❌ Failed to open URL via SDK:', error);
-                          window.open(url, '_blank');
-                        }
-                      } else {
-                        window.open(url, '_blank');
-                      }
-                    }}
-                    className="group relative px-5 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 bg-black border-2 border-purple-800 text-purple-500 font-bold text-sm sm:text-base md:text-lg tracking-[0.12em] sm:tracking-[0.16em] uppercase transition-all duration-300 hover:text-white hover:border-purple-500 overflow-hidden skew-x-[-10deg]"
-                  >
-                     {/* Hover Arka Planı */}
-                     <div className="absolute inset-0 bg-gradient-to-r from-purple-700 to-pink-600 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out skew-x-[10deg] origin-bottom"></div>
-                     
-                     {/* Buton Metni */}
-                     <span className="relative z-10 flex items-center gap-1.5 sm:gap-2 skew-x-[10deg] text-center">
-                         <span className="hidden md:inline">SHARE ON FARCASTER</span>
-                         <span className="md:hidden">SHARE</span>
-                     </span>
-
-                     {/* Neon Glow Efekti */}
-                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition duration-300 shadow-[0_0_30px_rgba(168,85,247,0.6)]"></div>
-                  </button>
-
-                  {/* Return Button */}
-                  <button 
-                    onClick={handleContinue} 
-                    className="group relative px-6 sm:px-8 md:px-10 py-2 sm:py-3 md:py-4 bg-black border-2 border-red-800 text-red-600 font-bold text-sm sm:text-base md:text-lg tracking-[0.12em] sm:tracking-[0.16em] uppercase transition-all duration-300 hover:text-white hover:border-red-500 overflow-hidden skew-x-[-10deg]"
+                 {/* Return Button */}
+                 <button 
+                   onClick={handleContinue} 
+                   className="group relative px-6 sm:px-8 md:px-10 py-2 sm:py-3 md:py-4 bg-black border-2 border-red-800 text-red-600 font-bold text-sm sm:text-base md:text-lg tracking-[0.12em] sm:tracking-[0.16em] uppercase transition-all duration-300 hover:text-white hover:border-red-500 overflow-hidden skew-x-[-10deg]"
                  >
                     {/* Hover Arka Planı */}
                     <div className="absolute inset-0 bg-red-700 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out skew-x-[10deg] origin-bottom"></div>
@@ -1160,7 +781,6 @@ Experience: https://www.voltpacks.xyz
             {/* Multi-Layer Pulsing Aura */}
             <div className="absolute -inset-4 bg-red-600/30 rounded-full blur-2xl group-hover:bg-red-600/50 animate-pulse transition-all"></div>
             <div className="absolute -inset-8 bg-red-500/20 rounded-full blur-3xl animate-pulse" style={{animationDelay: '0.5s'}}></div>
-            <div className="absolute -inset-12 bg-red-400/10 rounded-full blur-[100px] animate-pulse" style={{animationDelay: '1s'}}></div>
             
             {/* The Pack Itself */}
             <div className="relative w-full h-full bg-[#0a0a0a] border-[3px] border-red-800/80 rounded-lg shadow-[0_0_60px_rgba(139,0,0,0.3)] flex flex-col items-center justify-center overflow-hidden animate-card-glow">
@@ -1171,13 +791,8 @@ Experience: https://www.voltpacks.xyz
                {/* Animated Veins on Card (More Dynamic) */}
                <svg className="absolute inset-0 w-full h-full opacity-40 mix-blend-color-dodge" viewBox="0 0 100 100" preserveAspectRatio="none">
                  <path d="M50,110 Q10,70 50,50 T50,-10" stroke="#ff0000" strokeWidth="1" fill="none" className="animate-pulse-slow" />
-                 <path d="M-10,50 Q40,60 50,50 T110,50" stroke="#ff0000" strokeWidth="1" fill="none" className="animate-pulse-slow" style={{animationDelay: '1s'}} />
-                 <path d="M0,0 Q50,25 100,50 T100,100" stroke="#ff0000" strokeWidth="0.5" fill="none" className="animate-pulse-slow" style={{animationDelay: '0.5s'}} />
                </svg>
                
-               {/* Rotating Energy Ring */}
-               <div className="absolute inset-0 border-2 border-red-500/20 rounded-lg animate-spin-slow"></div>
-
                <div className="relative z-10 text-center transform group-hover:scale-105 transition-transform">
                  <div className="text-[10px] text-red-500 tracking-[0.24em] mb-1.5 font-mono animate-pulse">WARNING: HAZARDOUS</div>
                  <h2 className="text-4xl font-extrabold text-red-600 tracking-tighter drop-shadow-[0_2px_8px_rgba(0,0,0,1)] animate-text-glow" style={{ fontFamily: 'ITC Benguiat, serif' }}>
@@ -1245,7 +860,12 @@ Experience: https://www.voltpacks.xyz
             </span>
           </button>
           
-          <div className="text-[8px] sm:text-[10px] text-red-900/80 font-mono tracking-wider sm:tracking-widest text-center">
+          {/* 🔥 Galeri Butonu (Yeni Özellik) */}
+          <button onClick={() => setStage('gallery')} className="text-gray-500 text-xs hover:text-white font-mono tracking-widest border-b border-transparent hover:border-red-500 transition-all uppercase mt-2">
+             SEE YOUR COLLECTION ({uniqueCollectedCount}/{TOTAL_ART_COUNT})
+          </button>
+
+          <div className="text-[8px] sm:text-[10px] text-red-900/80 font-mono tracking-wider sm:tracking-widest text-center mt-1">
             TOTAL FLUX: {(parseFloat(PACK_PRICE) * packCount).toFixed(2)} USDC
           </div>
         </div>
