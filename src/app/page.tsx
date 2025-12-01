@@ -24,7 +24,7 @@ const TOTAL_ART_COUNT = 117;
 // ========================
 // HELPER FUNCTIONS
 // ========================
-// Görsel Gösterimi için (Hızlı) - Cloudflare öncelikli
+// 1. Uygulama içinde gösterim için (HIZLI OLAN)
 const ipfsToHttp = (uri: string): string => {
   if (!uri) return "https://i.imgur.com/hTYcwAu.png";
   if (uri.startsWith('ipfs://')) {
@@ -33,17 +33,18 @@ const ipfsToHttp = (uri: string): string => {
   return uri;
 };
 
-// ✅ FIX: Paylaşım için En Kararlı Gateway (Cloudflare)
-// Warpcast ve diğer sosyal platformlar Cloudflare gateway'i statik görsel olarak daha iyi tanır.
+// 2. Paylaşım URL'i için (WARPCAST UYUMLU OLAN)
+// Warpcast "ipfs.io" adresini sever, cloudflare bazen botları engeller.
 const ipfsToShareUrl = (uri: string): string => {
   if (!uri) return "https://i.imgur.com/hTYcwAu.png";
   if (uri.startsWith('ipfs://')) {
-    return uri.replace('ipfs://', 'https://cloudflare-ipfs.com/ipfs/');
+    // Standart IPFS gateway'i kullanıyoruz, en güveniliri budur.
+    return uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
   }
   return uri;
 };
 
-// 🔄 Akıllı Görsel Hata Yönetimi
+// 🔄 Akıllı Görsel Hata Yönetimi (Yedekli Sistem)
 const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
   const target = e.target as HTMLImageElement;
   const currentSrc = target.src;
@@ -53,6 +54,7 @@ const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
   } else if (currentSrc.includes('ipfs.io')) {
     target.src = currentSrc.replace('ipfs.io', 'dweb.link');
   } else if (currentSrc.includes('dweb.link')) {
+    // Son çare placeholder
     target.src = "https://placehold.co/400x600/1a1a1a/red?text=ARTIFACT+LOST";
   }
 };
@@ -166,7 +168,6 @@ export default function Home() {
       if (!isInFarcaster || isConnected) return;
       
       if (isAuthenticated && farcasterAddress) {
-        // Cüzdanların yüklenmesi için güvenli bekleme
         await new Promise(resolve => setTimeout(resolve, 800));
         try {
           const injectedConnector = connectors.find((c) => c.id === 'injected' || c.type === 'injected');
@@ -332,39 +333,24 @@ export default function Home() {
     mintWrite({ address: NFT_CONTRACT_ADDRESS, abi: NFT_ABI, functionName: 'openPacks', args: [BigInt(packCount), fid] });
   };
 
-  // ✅ FIX: Gelişmiş Bağlanma Fonksiyonu (Retry Mekanizması)
-  // Connectors dizisi boş gelirse, birkaç kez yeniden dener.
   const handleConnectWallet = async () => {
     const tryConnect = async (attempt = 1) => {
         try {
-            // Önce connectors listesi dolu mu kontrol et
             if (connectors.length === 0) {
                 if (attempt <= 3) {
-                    // Cüzdan adaptörleri yükleniyor olabilir, biraz bekle ve tekrar dene
-                    // console.log(`Wallet adapters not ready, retrying... (${attempt}/3)`);
                     setTimeout(() => tryConnect(attempt + 1), 500);
                     return;
                 }
                 toast.error("Wallet provider not found. Please refresh.");
                 return;
             }
-
             const injected = connectors.find(c => c.id === 'injected' || c.type === 'injected');
-            if (injected) {
-                await connect({ connector: injected });
-            } else {
-                await connect({ connector: connectors[0] });
-            }
+            if (injected) { await connect({ connector: injected }); } else { await connect({ connector: connectors[0] }); }
         } catch (e) {
             console.error("Connection error:", e);
-            if (attempt <= 2) {
-                 setTimeout(() => tryConnect(attempt + 1), 500);
-            } else {
-                 toast.error('Connection failed.');
-            }
+            if (attempt <= 2) { setTimeout(() => tryConnect(attempt + 1), 500); } else { toast.error('Connection failed.'); }
         }
     };
-
     await tryConnect();
   };
 
@@ -388,13 +374,14 @@ export default function Home() {
   const handleContinue = (): void => { setStage('idle'); setRevealedCards([]); setCurrentCardIndex(0); setPackCount(1); };
   const handleSkipToReveal = (): void => { setStage('revealed'); };
 
-  // ✅ FIX: Share URL Artık Cloudflare kullanıyor (Görsel Garantisi İçin)
+  // ✅ FIX: Share URL Artık standart ipfs.io kullanıyor (Görsel Garantisi İçin)
   const handleShare = async (customText?: string, customImage?: string) => {
     setIsLoading(true);
     try {
         let shareText = customText || `Just minted ${revealedCards.length} Stranger Things NFT${revealedCards.length > 1 ? 's' : ''} from the Upside Down! 🔴⚡\n\n${revealedCards.map(c => `📄 Artifact #${c.number}`).join('\n')}\n\nExperience: https://voltpacks.xyz\n\n#StrangerThings #NFT #Base`;
         
         let rawImage = customImage || (revealedCards.length > 0 ? revealedCards[0].tokenURI : "https://i.imgur.com/hTYcwAu.png");
+        // Embed için en kararlı url oluştur
         let embedImage = ipfsToShareUrl(rawImage);
         
         const encodedText = encodeURIComponent(shareText);
