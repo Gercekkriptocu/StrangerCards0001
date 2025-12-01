@@ -24,24 +24,39 @@ const TOTAL_ART_COUNT = 117;
 // ========================
 // HELPER FUNCTIONS
 // ========================
-// Görsel Gösterimi için (Hızlı)
+// Görsel Gösterimi için (Hızlı) - Cloudflare öncelikli
 const ipfsToHttp = (uri: string): string => {
   if (!uri) return "https://i.imgur.com/hTYcwAu.png";
   if (uri.startsWith('ipfs://')) {
-    // Cloudflare IPFS gateway is usually faster for display
     return uri.replace('ipfs://', 'https://cloudflare-ipfs.com/ipfs/');
   }
   return uri;
 };
 
-// Paylaşım için (Warpcast uyumlu)
+// Paylaşım için (Warpcast uyumlu) - Standart Gateway daha güvenilir
 const ipfsToShareUrl = (uri: string): string => {
   if (!uri) return "https://i.imgur.com/hTYcwAu.png";
   if (uri.startsWith('ipfs://')) {
-    // dweb.link often renders better in Farcaster embeds
-    return uri.replace('ipfs://', 'https://dweb.link/ipfs/');
+    // Warpcast genelde ipfs.io'yu daha iyi işler
+    return uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
   }
   return uri;
+};
+
+// 🔄 Akıllı Görsel Hata Yönetimi (Zincirleme Fallback)
+const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+  const target = e.target as HTMLImageElement;
+  const currentSrc = target.src;
+  
+  // 1. Cloudflare -> 2. IPFS.io -> 3. Dweb.link -> 4. Placeholder
+  if (currentSrc.includes('cloudflare-ipfs.com')) {
+    target.src = currentSrc.replace('cloudflare-ipfs.com', 'ipfs.io');
+  } else if (currentSrc.includes('ipfs.io')) {
+    target.src = currentSrc.replace('ipfs.io', 'dweb.link');
+  } else if (currentSrc.includes('dweb.link')) {
+    // Son çare placeholder
+    target.src = "https://placehold.co/400x600/1a1a1a/red?text=ARTIFACT+LOST";
+  }
 };
 
 // ========================
@@ -348,7 +363,7 @@ export default function Home() {
         let shareText = customText || `Just minted ${revealedCards.length} Stranger Things NFT${revealedCards.length > 1 ? 's' : ''} from the Upside Down! 🔴⚡\n\n${revealedCards.map(c => `📄 Artifact #${c.number}`).join('\n')}\n\nExperience: https://voltpacks.xyz\n\n#StrangerThings #NFT #Base`;
         
         let rawImage = customImage || (revealedCards.length > 0 ? revealedCards[0].tokenURI : "https://i.imgur.com/hTYcwAu.png");
-        // IPFS -> Share-Friendly URL
+        // IPFS -> Share-Friendly URL (ipfs.io)
         let embedImage = ipfsToShareUrl(rawImage);
         
         const encodedText = encodeURIComponent(shareText);
@@ -427,7 +442,14 @@ export default function Home() {
                                 
                                 <div className="absolute top-1 left-1 bg-black/80 px-2 py-0.5 rounded text-[8px] text-white font-mono z-20 border border-gray-700">#{item.artId}</div>
                                 
-                                <img src={ipfsToHttp(item.image)} alt={`Artifact`} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" loading="lazy" />
+                                {/* 🔴 ÖNEMLİ: onError handler eklendi */}
+                                <img 
+                                    src={ipfsToHttp(item.image)} 
+                                    alt={`Artifact`} 
+                                    className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" 
+                                    loading="lazy" 
+                                    onError={handleImageError} 
+                                />
                                 
                                 {/* Hover Üzerinde Paylaş Butonu */}
                                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-40 backdrop-blur-[1px]">
@@ -490,7 +512,7 @@ export default function Home() {
                     </div>
                     <div className="relative flex-1 bg-black overflow-hidden group-hover:brightness-110 transition duration-500">
                         <div className="absolute inset-0 z-20 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,6px_100%]"></div>
-                        <img src={ipfsToHttp(card.tokenURI)} alt={`Artifact ${card.number}`} className="w-full h-full object-cover opacity-90 grayscale group-hover:grayscale-0 transition-all duration-700" onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/320x480/111/red?text=CLASSIFIED'; }} />
+                        <img src={ipfsToHttp(card.tokenURI)} alt={`Artifact ${card.number}`} className="w-full h-full object-cover opacity-90 grayscale group-hover:grayscale-0 transition-all duration-700" onError={handleImageError} />
                         <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-[#111] to-transparent z-10"></div>
                     </div>
                     <div className="h-16 sm:h-20 bg-[#0a0a0a] p-2 sm:p-3 relative z-20 border-t border-red-900/30">
@@ -597,7 +619,7 @@ export default function Home() {
                 {[...communityNFTs, ...communityNFTs].map((nft: MintedNFT, idx: number) => (
                   <div key={`${nft.id}-${idx}`} className="flex-shrink-0 w-32 group cursor-pointer">
                     <div className="relative aspect-[2/3] bg-gray-900 rounded border border-gray-800 overflow-hidden transform group-hover:-translate-y-2 transition-transform duration-300 shadow-lg">
-                       <img src={ipfsToHttp(nft.image)} alt={`Token #${nft.tokenId}`} loading="lazy" className="w-full h-full object-cover opacity-60 group-hover:opacity-100 grayscale group-hover:grayscale-0 transition-all duration-500" onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/128x192/1a1a1a/red?text=NFT'; }} />
+                       <img src={ipfsToHttp(nft.image)} alt={`Token #${nft.tokenId}`} loading="lazy" className="w-full h-full object-cover opacity-60 group-hover:opacity-100 grayscale group-hover:grayscale-0 transition-all duration-500" onError={handleImageError} />
                        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80"></div>
                        <div className="absolute bottom-1.5 sm:bottom-2 left-1.5 sm:left-2 bg-white text-black text-[8px] sm:text-[10px] font-mono px-1 transform -rotate-2">{nft.artId ? `ART_${nft.artId}` : `TOK_${nft.tokenId}`}</div>
                     </div>
