@@ -33,28 +33,26 @@ const ipfsToHttp = (uri: string): string => {
   return uri;
 };
 
-// Paylaşım için (Warpcast uyumlu) - Standart Gateway daha güvenilir
+// ✅ FIX: Paylaşım için daha kararlı Gateway (dweb.link)
 const ipfsToShareUrl = (uri: string): string => {
   if (!uri) return "https://i.imgur.com/hTYcwAu.png";
   if (uri.startsWith('ipfs://')) {
-    // Warpcast genelde ipfs.io'yu daha iyi işler
-    return uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
+    // Warpcast embedleri için dweb.link genellikle daha iyi sonuç verir
+    return uri.replace('ipfs://', 'https://dweb.link/ipfs/');
   }
   return uri;
 };
 
-// 🔄 Akıllı Görsel Hata Yönetimi (Zincirleme Fallback)
+// 🔄 Akıllı Görsel Hata Yönetimi
 const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
   const target = e.target as HTMLImageElement;
   const currentSrc = target.src;
   
-  // 1. Cloudflare -> 2. IPFS.io -> 3. Dweb.link -> 4. Placeholder
   if (currentSrc.includes('cloudflare-ipfs.com')) {
     target.src = currentSrc.replace('cloudflare-ipfs.com', 'ipfs.io');
   } else if (currentSrc.includes('ipfs.io')) {
     target.src = currentSrc.replace('ipfs.io', 'dweb.link');
   } else if (currentSrc.includes('dweb.link')) {
-    // Son çare placeholder
     target.src = "https://placehold.co/400x600/1a1a1a/red?text=ARTIFACT+LOST";
   }
 };
@@ -162,15 +160,22 @@ export default function Home() {
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
   
-  // Auto-connect (SESSİZ - BİLDİRİM YOK)
+  // ✅ FIX: Auto-Connect Mantığı Güçlendirildi (Bildirimsiz)
   useEffect(() => {
     const autoConnect = async () => {
-      if (!isInFarcaster) return;
-      if (isAuthenticated && farcasterAddress && !isConnected) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!isInFarcaster || isConnected) return;
+      
+      if (isAuthenticated && farcasterAddress) {
+        // Biraz bekle ki connector'lar yüklensin
+        await new Promise(resolve => setTimeout(resolve, 500));
         try {
           const injectedConnector = connectors.find((c) => c.id === 'injected' || c.type === 'injected');
-          if (injectedConnector) await connect({ connector: injectedConnector });
+          if (injectedConnector) {
+             await connect({ connector: injectedConnector });
+          } else if (connectors.length > 0) {
+             // Fallback: İlk bulduğun connector'a bağlan
+             await connect({ connector: connectors[0] });
+          }
         } catch (error) { console.error('Silent auto-connect failed:', error); }
       }
     };
@@ -199,31 +204,23 @@ export default function Home() {
   const hasEnoughBalance = useMemo(() => usdcBalance ? (usdcBalance as bigint) >= totalCost : false, [usdcBalance, totalCost]);
   const needsApproval = useMemo(() => allowance ? (allowance as bigint) < totalCost : true, [allowance, totalCost]);
 
-  // 🔥 Galeri Gruplama ve Hesaplama (Adet Sayma)
+  // Galeri Mantığı
   const galleryItems = useMemo(() => {
     const groupedItems: Record<number, { count: number, image: string, artId: number }> = {};
-    
     userMintedNFTs.forEach(nft => {
       let artId = nft.artId;
-      // Eğer artId yoksa resim linkinden bulmaya çalış (Fallback)
       if (!artId && nft.image) {
          const match = nft.image.match(/\/(\d+)\.png$/);
          if (match) artId = Number(match[1]);
       }
-
       if (artId) {
-        if (!groupedItems[artId]) {
-          groupedItems[artId] = { count: 0, image: nft.image, artId: artId };
-        }
+        if (!groupedItems[artId]) groupedItems[artId] = { count: 0, image: nft.image, artId: artId };
         groupedItems[artId].count += 1;
       }
     });
-
-    // Art ID'ye göre sırala
     return Object.values(groupedItems).sort((a, b) => a.artId - b.artId);
   }, [userMintedNFTs]);
 
-  // İlerleme yüzdesi (Benzersiz kart sayısı)
   const uniqueCollectedCount = galleryItems.length;
 
   useEffect(() => {
@@ -287,7 +284,7 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [totalSupply, publicClient]);
 
-  // ✅ Toast ve Bildirimler Kaldırıldı - Sadece Error
+  // Transaction Management
   useEffect(() => { 
     if (isApproveConfirmed && stage === 'approving') { setStage('approved'); refetchAllowance(); setTimeout(() => { handleMint(); }, 500); } 
   }, [isApproveConfirmed, stage, refetchAllowance]);
@@ -336,16 +333,36 @@ export default function Home() {
     mintWrite({ address: NFT_CONTRACT_ADDRESS, abi: NFT_ABI, functionName: 'openPacks', args: [BigInt(packCount), fid] });
   };
 
+  // ✅ FIX: Gelişmiş Bağlanma Fonksiyonu (İlk Tıklama Sorunu Çözümü)
+  const handleConnectWallet = async () => {
+    try {
+        // Öncelikli olarak injected provider'ı (Farcaster/Metamask) ara
+        const injected = connectors.find(c => c.id === 'injected' || c.type === 'injected');
+        
+        if (injected) {
+            await connect({ connector: injected });
+        } else if (connectors.length > 0) {
+            // Eğer injected bulunamazsa, listedeki ilk uygun olana bağlan
+            await connect({ connector: connectors[0] });
+        } else {
+            toast.error("Wallet provider not ready. Please reload.");
+        }
+    } catch (e) {
+        console.error(e);
+        toast.error('Connection failed. Retrying...');
+    }
+  };
+
   const handleOpenPack = async (): Promise<void> => {
     if (stage !== 'idle' && stage !== 'approved') return;
     if (!isInFarcaster) { alert('This app is only available inside Farcaster.'); return; }
+    
+    // Bağlı değilse, sağlam bağlanma fonksiyonunu çağır
     if (!isConnected || !address) {
-      try {
-        const injectedConnector = connectors.find((c) => c.id === 'injected' || c.type === 'injected');
-        if (injectedConnector) await connect({ connector: injectedConnector });
-        return;
-      } catch (error) { toast.error('Connection Failed'); return; }
+      await handleConnectWallet();
+      return;
     }
+    
     if (needsApproval) handleApprove(); else handleMint();
   };
 
@@ -356,14 +373,13 @@ export default function Home() {
   const handleContinue = (): void => { setStage('idle'); setRevealedCards([]); setCurrentCardIndex(0); setPackCount(1); };
   const handleSkipToReveal = (): void => { setStage('revealed'); };
 
-  // ✅ YENİ SHARE FONKSİYONU (Robust)
+  // ✅ FIX: Share URL Artık dweb.link kullanıyor
   const handleShare = async (customText?: string, customImage?: string) => {
     setIsLoading(true);
     try {
         let shareText = customText || `Just minted ${revealedCards.length} Stranger Things NFT${revealedCards.length > 1 ? 's' : ''} from the Upside Down! 🔴⚡\n\n${revealedCards.map(c => `📄 Artifact #${c.number}`).join('\n')}\n\nExperience: https://voltpacks.xyz\n\n#StrangerThings #NFT #Base`;
         
         let rawImage = customImage || (revealedCards.length > 0 ? revealedCards[0].tokenURI : "https://i.imgur.com/hTYcwAu.png");
-        // IPFS -> Share-Friendly URL (ipfs.io)
         let embedImage = ipfsToShareUrl(rawImage);
         
         const encodedText = encodeURIComponent(shareText);
@@ -383,16 +399,13 @@ export default function Home() {
     }
   };
 
-  // ✅ GALERİ TOPLU PAYLAŞIM
   const handleShareCollection = () => {
      const shareText = `I have collected ${uniqueCollectedCount} / ${TOTAL_ART_COUNT} unique artifacts from the Upside Down! 🔴⚡\n\nCan you beat my collection?\n\nMint yours at: https://voltpacks.xyz`;
-     // Galerideki en yeni görseli kullan
      const lastItem = galleryItems.length > 0 ? galleryItems[galleryItems.length - 1] : null;
      const embedImage = lastItem ? lastItem.image : "https://i.imgur.com/hTYcwAu.png";
      handleShare(shareText, embedImage);
   };
 
-  // ✅ GALERİ TEKLİ NFT PAYLAŞIMI
   const handleShareSingleNFT = (nft: { artId: number, image: string }) => {
       const shareText = `Check out Artifact #${nft.artId} I found in the Upside Down! 🔦\n\nMint yours at: https://voltpacks.xyz`;
       handleShare(shareText, nft.image);
@@ -402,7 +415,7 @@ export default function Home() {
     return <PackOpening cardImage={revealedCards[currentCardIndex].tokenURI} cardNumber={currentCardIndex + 1} totalCards={revealedCards.length} onAnimationComplete={handleAnimationComplete} onSkip={handleSkipToReveal} />;
   }
 
-  // 🔥 GELİŞMİŞ GALERİ EKRANI (MY COLLECTION)
+  // GALLERY SCREEN
   if (stage === 'gallery') {
     return (
         <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center font-sans relative overflow-x-hidden selection:bg-red-500 selection:text-black">
@@ -417,7 +430,6 @@ export default function Home() {
                     <p className="text-gray-400 font-mono tracking-widest text-sm mb-2">
                         PROGRESS: <span className="text-white font-bold text-lg">{uniqueCollectedCount}</span> / {TOTAL_ART_COUNT}
                     </p>
-                    {/* Progress Bar */}
                     <div className="w-64 h-3 bg-gray-900 rounded-full overflow-hidden border border-gray-700 relative mx-auto shadow-[0_0_15px_rgba(255,0,0,0.3)]">
                         <div className="absolute inset-0 bg-red-900/30"></div>
                         <div className="h-full bg-gradient-to-r from-red-800 to-red-500 shadow-[0_0_10px_red]" style={{ width: `${(uniqueCollectedCount / TOTAL_ART_COUNT) * 100}%` }}></div>
@@ -433,30 +445,15 @@ export default function Home() {
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full">
                         {galleryItems.map((item, idx) => (
                              <div key={`${item.artId}-${idx}`} className="relative aspect-[2/3] bg-gray-900 rounded border border-gray-800 overflow-hidden group hover:border-red-500 transition-all duration-300 shadow-lg">
-                                {/* Adet Rozeti (2X, 3X vs.) */}
                                 {item.count > 1 && (
                                     <div className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg z-30 border border-red-400 animate-pulse">
                                         {item.count}X
                                     </div>
                                 )}
-                                
                                 <div className="absolute top-1 left-1 bg-black/80 px-2 py-0.5 rounded text-[8px] text-white font-mono z-20 border border-gray-700">#{item.artId}</div>
-                                
-                                {/* 🔴 ÖNEMLİ: onError handler eklendi */}
-                                <img 
-                                    src={ipfsToHttp(item.image)} 
-                                    alt={`Artifact`} 
-                                    className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" 
-                                    loading="lazy" 
-                                    onError={handleImageError} 
-                                />
-                                
-                                {/* Hover Üzerinde Paylaş Butonu */}
+                                <img src={ipfsToHttp(item.image)} alt={`Artifact`} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" loading="lazy" onError={handleImageError} />
                                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-40 backdrop-blur-[1px]">
-                                    <button 
-                                        onClick={() => handleShareSingleNFT(item)}
-                                        className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2 px-4 rounded border border-red-400 transform scale-90 hover:scale-100 transition-transform uppercase tracking-wider"
-                                    >
+                                    <button onClick={() => handleShareSingleNFT(item)} className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2 px-4 rounded border border-red-400 transform scale-90 hover:scale-100 transition-transform uppercase tracking-wider">
                                         SHARE CARD
                                     </button>
                                 </div>
@@ -466,7 +463,6 @@ export default function Home() {
                 )}
             </div>
 
-            {/* Sabit Alt Panel (Galeri İçin) */}
             <div className="fixed bottom-0 left-0 w-full z-50 pointer-events-none">
                  <div className="absolute bottom-0 w-full h-40 bg-gradient-to-t from-black via-black/90 to-transparent"></div>
                  <div className="relative w-full pb-6 flex flex-col sm:flex-row justify-center items-center gap-4 h-auto pointer-events-auto px-4">
@@ -482,7 +478,7 @@ export default function Home() {
     );
   }
 
-  // REVEALED SCREEN (HAWKINS GALLERY UI)
+  // REVEALED SCREEN
   if (stage === 'revealed') {
     return (
       <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center font-sans relative overflow-x-hidden selection:bg-red-500 selection:text-black">
