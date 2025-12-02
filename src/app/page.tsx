@@ -20,11 +20,13 @@ const NFT_CONTRACT_ADDRESS: Address = "0xFaCEEc3C8c67eC27c9F2afc8A4ca4a3E1e1263b
 const IPFS_CID = "bafybeidot75pevwwcdcehtfzfwxxkwcabgyphrc6m44x2ufdestdqr5wbq"; 
 const PACK_PRICE = "0.3"; 
 const TOTAL_ART_COUNT = 117;
+// ✅ YENİ LİNK SABİTİ
+const MINI_APP_URL = "https://farcaster.xyz/miniapps/TXNvrlDd-ncJ/stranger-packs";
 
 // ========================
 // HELPER FUNCTIONS
 // ========================
-// 1. Uygulama içinde gösterim için (HIZLI OLAN)
+// 1. Uygulama içinde gösterim için (HIZLI OLAN - Cloudflare)
 const ipfsToHttp = (uri: string): string => {
   if (!uri) return "https://i.imgur.com/hTYcwAu.png";
   if (uri.startsWith('ipfs://')) {
@@ -33,18 +35,18 @@ const ipfsToHttp = (uri: string): string => {
   return uri;
 };
 
-// 2. Paylaşım URL'i için (WARPCAST UYUMLU OLAN)
-// Warpcast "ipfs.io" adresini sever, cloudflare bazen botları engeller.
+// 2. Paylaşım URL'i için (İSTENEN FORMAT - ipfs.io)
+// ✅ Bu fonksiyon linki tam olarak https://ipfs.io/ipfs/... formatına çevirir.
 const ipfsToShareUrl = (uri: string): string => {
   if (!uri) return "https://i.imgur.com/hTYcwAu.png";
   if (uri.startsWith('ipfs://')) {
-    // Standart IPFS gateway'i kullanıyoruz, en güveniliri budur.
+    // "ipfs://" kısmını silip "https://ipfs.io/ipfs/" ekliyoruz
     return uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
   }
   return uri;
 };
 
-// 🔄 Akıllı Görsel Hata Yönetimi (Yedekli Sistem)
+// 🔄 Akıllı Görsel Hata Yönetimi
 const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
   const target = e.target as HTMLImageElement;
   const currentSrc = target.src;
@@ -54,7 +56,6 @@ const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
   } else if (currentSrc.includes('ipfs.io')) {
     target.src = currentSrc.replace('ipfs.io', 'dweb.link');
   } else if (currentSrc.includes('dweb.link')) {
-    // Son çare placeholder
     target.src = "https://placehold.co/400x600/1a1a1a/red?text=ARTIFACT+LOST";
   }
 };
@@ -162,7 +163,6 @@ export default function Home() {
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
   
-  // ✅ FIX: Auto-Connect Mantığı (Tamamen Sessiz - Toast Yok)
   useEffect(() => {
     const autoConnect = async () => {
       if (!isInFarcaster || isConnected) return;
@@ -358,7 +358,6 @@ export default function Home() {
     if (stage !== 'idle' && stage !== 'approved') return;
     if (!isInFarcaster) { alert('This app is only available inside Farcaster.'); return; }
     
-    // Bağlı değilse, retry mekanizmalı bağlanma fonksiyonunu çağır
     if (!isConnected || !address) {
       await handleConnectWallet();
       return;
@@ -374,14 +373,14 @@ export default function Home() {
   const handleContinue = (): void => { setStage('idle'); setRevealedCards([]); setCurrentCardIndex(0); setPackCount(1); };
   const handleSkipToReveal = (): void => { setStage('revealed'); };
 
-  // ✅ FIX: Share URL Artık standart ipfs.io kullanıyor (Görsel Garantisi İçin)
+  // ✅ FIX: Share fonksiyonu güncellendi
   const handleShare = async (customText?: string, customImage?: string) => {
     setIsLoading(true);
     try {
-        let shareText = customText || `Just minted ${revealedCards.length} Stranger Things NFT${revealedCards.length > 1 ? 's' : ''} from the Upside Down! 🔴⚡\n\n${revealedCards.map(c => `📄 Artifact #${c.number}`).join('\n')}\n\nExperience: https://voltpacks.xyz\n\n#StrangerThings #NFT #Base`;
+        let shareText = customText || `Just minted ${revealedCards.length} Stranger Things NFT${revealedCards.length > 1 ? 's' : ''} from the Upside Down! 🔴⚡\n\n${revealedCards.map(c => `📄 Artifact #${c.number}`).join('\n')}\n\nExperience: ${MINI_APP_URL}\n\n#StrangerThings #NFT #Base`;
         
         let rawImage = customImage || (revealedCards.length > 0 ? revealedCards[0].tokenURI : "https://i.imgur.com/hTYcwAu.png");
-        // Embed için en kararlı url oluştur
+        // Embed için kesin ipfs.io formatını al
         let embedImage = ipfsToShareUrl(rawImage);
         
         const encodedText = encodeURIComponent(shareText);
@@ -402,14 +401,14 @@ export default function Home() {
   };
 
   const handleShareCollection = () => {
-     const shareText = `I have collected ${uniqueCollectedCount} / ${TOTAL_ART_COUNT} unique artifacts from the Upside Down! 🔴⚡\n\nCan you beat my collection?\n\nMint yours at: https://voltpacks.xyz`;
+     const shareText = `I have collected ${uniqueCollectedCount} / ${TOTAL_ART_COUNT} unique artifacts from the Upside Down! 🔴⚡\n\nCan you beat my collection?\n\nMint yours at: ${MINI_APP_URL}`;
      const lastItem = galleryItems.length > 0 ? galleryItems[galleryItems.length - 1] : null;
      const embedImage = lastItem ? lastItem.image : "https://i.imgur.com/hTYcwAu.png";
      handleShare(shareText, embedImage);
   };
 
   const handleShareSingleNFT = (nft: { artId: number, image: string }) => {
-      const shareText = `Check out Artifact #${nft.artId} I found in the Upside Down! 🔦\n\nMint yours at: https://voltpacks.xyz`;
+      const shareText = `Check out Artifact #${nft.artId} I found in the Upside Down! 🔦\n\nMint yours at: ${MINI_APP_URL}`;
       handleShare(shareText, nft.image);
   };
 
